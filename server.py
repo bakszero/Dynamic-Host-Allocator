@@ -50,7 +50,7 @@ def main():
     # Get Capacity and MAC address objects for the labs
     capacity_of_labs = []
     labs = []
-    MAC_of_labs = []
+    mac_add = []
 
     for i in range(2, 2+num_of_labs):
         this_line = file_content[i].split(':')
@@ -59,12 +59,16 @@ def main():
 
     for i in range(2+num_of_labs, 2+num_of_labs*2):
         this_line = file_content[i].split('-')
-        MAC_of_labs.append(str(this_line[0]))
+        mac_add.append(str(this_line[0]))
 
-    labs_info = zip(labs, capacity_of_labs, MAC_of_labs)
+    labs_info = zip(labs, capacity_of_labs, mac_add)
 
-    # Sort labs according to number of hosts
+    # Sort labs according to number of hosts - ('Lab_name', number_of_hosts, 'MAC addr')
     labs_info = sorted(labs_info, key=itemgetter(1))
+
+    # Print them one by one
+    for eachLab in labs_info:
+        print eachLab
 
 
 if __name__ == '__main__':  # pragma: no cover
