@@ -51,15 +51,20 @@ def main():
     capacity_of_labs = []
     labs = []
     mac_add = []
+    labs_dict = {}
 
     for i in range(2, 2+num_of_labs):
         this_line = file_content[i].split(':')
-        labs.append(str(this_line[0]))
-        capacity_of_labs.append(int(this_line[1]))
+        labs_dict.update({str(this_line[0]): [int(this_line[1])]})
 
     for i in range(2+num_of_labs, 2+num_of_labs*2):
         this_line = file_content[i].split('-')
-        mac_add.append(str(this_line[0]))
+        labs_dict[this_line[1]].append(str(this_line[0]))
+
+    for key, value in labs_dict.items():
+        labs.append(key)
+        capacity_of_labs.append(value[0])
+        mac_add.append(value[1])
 
     labs_info = zip(labs, capacity_of_labs, mac_add)
 
