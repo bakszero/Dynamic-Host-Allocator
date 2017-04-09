@@ -4,6 +4,11 @@ import re
 from math import *
 from operator import itemgetter
 import copy
+import socket
+
+
+PORT = 1443
+HOST = 'localhost'
 
 
 def validate_CIDR(CIDR_format_string):
@@ -136,8 +141,7 @@ def get_next_usable_addr(ipaddr,subnet_list):
     return ipaddr
 
 allocation = {}
-
-
+mac_map={}
 def VLSM(network_addr, labs_info):
     need = 0
     allc =0
@@ -230,12 +234,14 @@ def main():
 
     #print (labs_dict)
 
-    for i in range(2+num_of_labs, 2+num_of_labs*3):
+    for i in range(2+num_of_labs,len(file_content)):
         this_line = file_content[i].split('-')
+        mac_map.update({str(this_line[0]): [str(this_line[1])]})
         labs_dict[this_line[1]].append(str(this_line[0]))
 
     #print (labs_dict)
-
+    print "mac mao is "
+    print (mac_map)
     for key, value in labs_dict.items():
         labs.append(key)
         capacity_of_labs.append(value[0])
