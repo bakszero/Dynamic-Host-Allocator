@@ -129,8 +129,8 @@ def join(ip_addr): #Joiner for the IP
 
 
 
-def getnextaddr(ipaddr, nmask):
-    ipaddr = get_broadcast_address(ipaddr, nmask)
+def get_next_usable_addr(ipaddr,subnet_list):
+    ipaddr = get_broadcast_address(ipaddr, subnet_list)
     for i in range(4):
         if ipaddr[3 - i] == 255:
             ipaddr[3 - i] = 0
@@ -157,7 +157,7 @@ def VLSM(network_addr, labs_info):
         ipaddr = get_network_address(ipaddr, convert_mask_to_ip(int(32 - bits)))
         print "ipaddr"
         print (ipaddr)
-        print " SUBNET: %15s NEEDED: %3d (%3d %% of) ALLOCATED %4d ADDRESS: %15s :: %15s - %-15s :: %15s MASK: %d (%15s)" % \
+        print " SUBNET: %5s NEEDED: %3d (%3d %% of) ALLOCATED %4d ADDRESS: %15s :: %15s - %-15s :: %15s MASK: %d (%15s)" % \
               (x[0],
                int(x[1]),
                (int(x[1]) * 100) / (int(pow(2, bits)) - 2),
@@ -172,7 +172,7 @@ def VLSM(network_addr, labs_info):
 
         need += int(x[1])
         allc += int(pow(2, bits)) - 2
-        ipaddr = getnextaddr(ipaddr, convert_mask_to_ip(int(32 - bits)))
+        ipaddr = get_next_usable_addr(ipaddr, convert_mask_to_ip(int(32 - bits)))
 
 
 
