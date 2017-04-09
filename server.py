@@ -67,13 +67,34 @@ def check_lab_capacity(capacity_of_labs, subnet_mask):
         return total_capacity
 
 
-def get_network_address(,subnet_mask):
+def get_network_address(ip_addr,subnet_list):
+    NA=[]
     for x in xrange(4):
-        NA = [0]
+        NA.append(0)
+    #Convert list members to ints.
     for x in xrange(4):
-        NA[x] = int(ipaddr[i]) & int(nmask[i])  # octet and subnetmask
-    return net
+        ip_addr[x] = int(ip_addr[x])
+        subnet_list[x] = int(subnet_list[x])
+    for x in range(4):
+        
+        #Logic: NA is obtained via ANDing the bits of ip address and the subnet
+        NA[x] = ip_addr[x] & subnet_list[x]  # octet and subnetmask
+    return NA
     
+
+def VLSM(network_addr, labs_info):
+
+    #Iterate over the labs
+    for x in labs_info:
+        #print (int(x[1]) + 2)
+        bits = min_pow2(int(x[1]) + 2)
+        ipaddr = getnet(ipaddr, getmask(int(32 - bits)))
+
+
+
+
+
+
 def main():
 
     # Check if file exists and open it
@@ -93,6 +114,8 @@ def main():
 
     # Store the validated CIDR in a variable for future use.
     CIDR = file_content[0]
+    #print "CIDR IS"
+    #print (CIDR)
     
     # Validate the type of "number of labs"
     try:
@@ -117,7 +140,7 @@ def main():
         this_line = file_content[i].split('-')
         labs_dict[this_line[1]].append(str(this_line[0]))
 
-    print (labs_dict)
+    #print (labs_dict)
 
     for key, value in labs_dict.items():
         labs.append(key)
@@ -126,7 +149,7 @@ def main():
         for i in value[1:]:
             mac_add.append(str(i))
 
-    print (capacity_of_labs)
+    #print (capacity_of_labs)
 
     #No need to add mac address to labs(as of now atleast!)
     labs_info = zip(labs, capacity_of_labs)
@@ -138,6 +161,8 @@ def main():
     #Removed mac_address as it is not entirely necessary at the moment
     labs_info = sorted(labs_info, key=itemgetter(1), reverse=True)
 
+    print labs_info
+        
     # Print them one by one
     for eachLab in labs_info:
         print eachLab
@@ -150,18 +175,37 @@ def main():
     CIDR_format_string = CIDR.split('/')
     ip = CIDR_format_string[0]
     subnet_mask = CIDR_format_string[1]
-    #print (subnet_mask)
+   # print (ip)
 
     #WE have to convert subnet masks to an equivalent IP format for processing. 
 
     subnet_list = convert_mask_to_ip(int(subnet_mask))
-    #print subnet_list
+    print subnet_list
 
     #Calculate total capacity of the labs and if those satisfy the constraints
     total_hosts = check_lab_capacity(capacity_of_labs, subnet_mask)
     
 
-    #Get the Network Address from the given IP address and subnet mask
+    ##Get the Network Address from the given IP address and subnet mask
+
+    #Split ip into list
+    ip_addr = ip.split(".")
+    for x in xrange(len(ip_addr)):
+        ip_addr[x] = int(ip_addr[x])
+
+    
+    #Send this ip to get the N.A.
+    network_addr = get_network_address(ip_addr, subnet_list)
+    print ("network address is ")
+    print (network_addr)
+
+
+    #Run the variable length subnet masking function
+
+    VLSM(network_addr, labs_info )
+
+
+
 
 
 
