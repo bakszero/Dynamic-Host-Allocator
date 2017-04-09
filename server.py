@@ -8,11 +8,11 @@ import copy
 import socket
 
 
-PORT = 1443
+PORT =1445
 HOST = 'localhost'
 allocation = {}
 mac_map = {}
-
+curr_ip_pointer={}
 
 def validate_CIDR(CIDR_format_string):
 
@@ -143,6 +143,39 @@ def get_next_usable_addr(ipaddr,subnet_list):
     return ipaddr
 
 
+def get_next_ip_addr(ipaddr):
+    
+    
+    for i in xrange(len(ipaddr)):
+        last_digit = 3-i
+        if ipaddr[last_digit] != 255:
+            ipaddr[last_digit] += 1
+            break
+        else:
+            ipaddr[last_digit] = 0
+            if ipaddr[last_digit - 1] != 255:
+                ipaddr[last_digit - 1] += 1
+                break
+    
+    return ipaddr
+
+def update_curr_pointer():
+    print curr_ip_pointer
+    for key, value in curr_ip_pointer.items():
+        #print key, value
+        curr_ip_pointer[key]=get_next_ip_addr(value)
+
+
+
+def assign_client_ip(mac_addr):
+    lab = str(mac_map[mac_addr])
+    client_ip = curr_ip_pointer[lab]
+    print "zppp"
+    print client_ip
+    return client_ip
+
+
+
 def VLSM(network_addr, labs_info):
     need = 0
     allc =0
@@ -153,7 +186,7 @@ def VLSM(network_addr, labs_info):
         #print (int(x[1]) + 2)
         bits = min_pow2(int(x[1]) + 2)
         ipaddr = get_network_address(ipaddr, convert_mask_to_ip(int(32 - bits)))
-
+        print ipaddr
         #Get the first and last IPs
         first_addr = copy.deepcopy(ipaddr)  # list is mutable, not to change the global value
         first_addr[3] = int(int(first_addr[3]) + 1)
@@ -167,7 +200,13 @@ def VLSM(network_addr, labs_info):
         allocation.update({str(x[0]): [first_upd_addr]})
         allocation[x[0]].append(last_upd_addr)
 
-        print allocation
+        #print allocation
+
+        #Store the current ip pointer 
+        curr_ip_pointer.update({str(x[0]): first_addr})
+        #print "curr_ip_pointer is "
+        #print curr_ip_pointer
+        #labs_dict[this_line[1]].append(str(this_line[0]))
 
         print " SUBNET: %5s NEEDED: %3d (%3d %% of) ALLOCATED %4d ADDRESS: %15s :: %15s - %-15s :: %15s MASK: %d (%15s)" % \
               (x[0],
@@ -185,6 +224,10 @@ def VLSM(network_addr, labs_info):
         need += int(x[1])
         allc += int(pow(2, bits)) - 2
         ipaddr = get_next_usable_addr(ipaddr, convert_mask_to_ip(int(32 - bits)))
+        print "Next usable addresss is "
+        print (ipaddr)
+
+
 
 
 def run_server():
@@ -196,9 +239,22 @@ def run_server():
         print 'Got connection from', addr
         data = conn.recv(1024)
         print data
+
+        #Check if data mac in the original mac dictionary
+        #data = "F8:D1:90:80:65:A8"
+        if str(data) in mac_map:
+            #if yes
+            print "YES IN MAC "
+            new_client_ip = assign_client_ip(str(data))
+            print "HEY HERE I AM ASSIGNED"
+            print new_client_ip
+            #Update curr_pointer of lab dictionary
+            
+
         print('Server received', repr(data))
 
-        conn.send('Thank you for connecting')
+        conn.send(join(new_client_ip))
+        update_curr_pointer()
         conn.close()
 
 
@@ -309,6 +365,10 @@ def main():
 
     # Run the server
     run_server()
+
+    
+
+    #update_curr_pointer()
 
 
 if __name__ == '__main__':  # pragma: no cover

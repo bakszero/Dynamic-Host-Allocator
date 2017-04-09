@@ -2,10 +2,10 @@ import socket
 
 s = socket.socket()             
 host = ""
-port = 1443
+port = 1445
 
 s.connect((host, port))
-s.send("Hello server!")
+s.send("F8:D1:90:80:65:A8")
 
 while True:
     print('receiving data...')
