@@ -3,6 +3,7 @@ import os
 import re
 from math import *
 from operator import itemgetter
+import copy
 
 
 def validate_CIDR(CIDR_format_string):
@@ -59,7 +60,7 @@ def check_lab_capacity(capacity_of_labs, subnet_mask):
     total_capacity = 0
     for i in capacity_of_labs:
         total_capacity += i
-    print (total_capacity)
+    #print (total_capacity)
 
     #check if lab capacity is valid. If not, raise an error.
     if total_capacity > (pow(2, 32 - int(subnet_mask)) - 2):
@@ -97,16 +98,6 @@ def get_broadcast_address(ip_addr, subnet_list):  # Get broadcast address from i
         BA[x] = (ip_addr[x]) | (255 - subnet_list[x])  # octet or wildcard mask
     return BA
 
-def first_ip(ipaddr):  # Get first usable address from ip and mask
-    new_addr = ipaddr[:]  # list is mutable, not to change the global value
-    new_addr[3] = int(new_addr[3]) + 1
-    return new_addr
-
-
-def last_ip(ipaddr, subnet_list):  # Get last usable address from ip and mask
-    addr = get_broadcast_address(ipaddr, subnet_list)
-    addr[3] -= 1
-    return addr
 
 
 def min_pow2(capacity):  # how many bits do we need to borrow to cover number of hosts
@@ -121,7 +112,7 @@ def join(ip_addr): #Joiner for the IP
     addr = []
     for i in xrange(len(ip_addr)):
         addr.append(str(ip_addr[i]))
-    print addr
+    #print addr
     addr =  ".".join(addr)
 
     return addr
@@ -131,19 +122,20 @@ def join(ip_addr): #Joiner for the IP
 
 def get_next_usable_addr(ipaddr,subnet_list):
     ipaddr = get_broadcast_address(ipaddr, subnet_list)
-    for i in range(4):
-        if ipaddr[3 - i] == 255:
-            ipaddr[3 - i] = 0
-            if ipaddr[3 - i - 1] != 255:
-                ipaddr[3 - i - 1] += 1
-                break
-        else:
-            ipaddr[3 - i] += 1
+    
+    for i in xrange(len(ipaddr)):
+        last_digit = 3-i
+        if ipaddr[last_digit] != 255:
+            ipaddr[last_digit] += 1
             break
+        else:
+            ipaddr[last_digit] = 0
+            if ipaddr[last_digit - 1] != 255:
+                ipaddr[last_digit - 1] += 1
+                break
     return ipaddr
 
-need = 0
-allc = 0
+
 
 def VLSM(network_addr, labs_info):
     need = 0
@@ -155,16 +147,28 @@ def VLSM(network_addr, labs_info):
         #print (int(x[1]) + 2)
         bits = min_pow2(int(x[1]) + 2)
         ipaddr = get_network_address(ipaddr, convert_mask_to_ip(int(32 - bits)))
-        print "ipaddr"
-        print (ipaddr)
+
+        #Get the first and last IPs
+        first_addr = copy.deepcopy(ipaddr)  # list is mutable, not to change the global value
+        first_addr[3] = int(int(first_addr[3]) + 1)
+
+        last_addr = get_broadcast_address(ipaddr, convert_mask_to_ip(int(32 - bits)))
+        #print "last addr is "
+        #print (last_addr)
+        last_addr[3] -= 1
+        
+
+
+        #print "ipaddr"
+        #print (ipaddr)
         print " SUBNET: %5s NEEDED: %3d (%3d %% of) ALLOCATED %4d ADDRESS: %15s :: %15s - %-15s :: %15s MASK: %d (%15s)" % \
               (x[0],
                int(x[1]),
                (int(x[1]) * 100) / (int(pow(2, bits)) - 2),
                int(pow(2, bits)) - 2,
                join(ipaddr),
-               join(first_ip(ipaddr)),
-               join(last_ip(ipaddr, convert_mask_to_ip(int(32 - bits)))),
+               join(first_addr),
+               join(last_addr),
                join(get_broadcast_address(ipaddr, convert_mask_to_ip(int(32 - bits)))),
                32 - bits,
                join(convert_mask_to_ip(int(32 - bits))))
@@ -248,7 +252,8 @@ def main():
         
     # Print them one by one
     for eachLab in labs_info:
-        print eachLab
+        pass
+        #print eachLab
 
 
 
@@ -263,7 +268,7 @@ def main():
     #WE have to convert subnet masks to an equivalent IP format for processing. 
 
     subnet_list = convert_mask_to_ip(int(subnet_mask))
-    print subnet_list
+    #print subnet_list
 
     #Calculate total capacity of the labs and if those satisfy the constraints
     total_hosts = check_lab_capacity(capacity_of_labs, subnet_mask)
@@ -279,8 +284,8 @@ def main():
     
     #Send this ip to get the N.A.
     network_addr = get_network_address(ip_addr, subnet_list)
-    print ("network address is ")
-    print (network_addr)
+    #print ("network address is ")
+    #print (network_addr)
 
 
     #Run the variable length subnet masking function
