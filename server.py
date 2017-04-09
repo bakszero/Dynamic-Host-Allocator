@@ -1,6 +1,7 @@
 import sys
 import os
 import re
+import socket
 from math import *
 from operator import itemgetter
 import copy
@@ -9,6 +10,8 @@ import socket
 
 PORT = 1443
 HOST = 'localhost'
+allocation = {}
+mac_map = {}
 
 
 def validate_CIDR(CIDR_format_string):
@@ -88,6 +91,7 @@ def get_network_address(ip_addr,subnet_list):
         NA[x] = ip_addr[x] & subnet_list[x]  # octet and subnetmask
     return NA
 
+
 def get_broadcast_address(ip_addr, subnet_list):  # Get broadcast address from ip and mask
 
     BA = []
@@ -104,7 +108,6 @@ def get_broadcast_address(ip_addr, subnet_list):  # Get broadcast address from i
     return BA
 
 
-
 def min_pow2(capacity):  # how many bits do we need to borrow to cover number of hosts
     z = log(capacity, 2)  
     int_z = int(z)
@@ -113,6 +116,7 @@ def min_pow2(capacity):  # how many bits do we need to borrow to cover number of
     else:
         return int(ceil(z))
     
+
 def join(ip_addr): #Joiner for the IP
     addr = []
     for i in xrange(len(ip_addr)):
@@ -121,8 +125,6 @@ def join(ip_addr): #Joiner for the IP
     addr =  ".".join(addr)
 
     return addr
-
-
 
 
 def get_next_usable_addr(ipaddr,subnet_list):
@@ -140,8 +142,7 @@ def get_next_usable_addr(ipaddr,subnet_list):
                 break
     return ipaddr
 
-allocation = {}
-mac_map={}
+
 def VLSM(network_addr, labs_info):
     need = 0
     allc =0
@@ -158,11 +159,9 @@ def VLSM(network_addr, labs_info):
         first_addr[3] = int(int(first_addr[3]) + 1)
 
         last_addr = get_broadcast_address(ipaddr, convert_mask_to_ip(int(32 - bits)))
-        #print "last addr is "
-        #print (last_addr)
         last_addr[3] -= 1
 
-        #Do the join of the first and last addresses here itself
+        # Do the join of the first and last addresses here itself
         first_upd_addr = join (first_addr)
         last_upd_addr = join (last_addr)
         allocation.update({str(x[0]): [first_upd_addr]})
@@ -170,8 +169,6 @@ def VLSM(network_addr, labs_info):
 
         print allocation
 
-        #print "ipaddr"
-        #print (ipaddr)
         print " SUBNET: %5s NEEDED: %3d (%3d %% of) ALLOCATED %4d ADDRESS: %15s :: %15s - %-15s :: %15s MASK: %d (%15s)" % \
               (x[0],
                int(x[1]),
@@ -190,7 +187,19 @@ def VLSM(network_addr, labs_info):
         ipaddr = get_next_usable_addr(ipaddr, convert_mask_to_ip(int(32 - bits)))
 
 
+def run_server():
+    dhcp_server = socket.socket()
+    dhcp_server.bind((HOST, PORT))
+    dhcp_server.listen(5)
+    while True:
+        conn, addr = dhcp_server.accept()
+        print 'Got connection from', addr
+        data = conn.recv(1024)
+        print data
+        print('Server received', repr(data))
 
+        conn.send('Thank you for connecting')
+        conn.close()
 
 
 def main():
@@ -203,17 +212,13 @@ def main():
         sys.exit(1)
 
     file_content = subnet_file.readlines()
-    #print file_content
     file_content = [x.strip() for x in file_content]
-    #print (file_content)
 
     # Validate the CIDR formatted: [IPv4]/[SubnetMask]
     validate_CIDR(file_content[0])
 
     # Store the validated CIDR in a variable for future use.
     CIDR = file_content[0]
-    #print "CIDR IS"
-    #print (CIDR)
     
     # Validate the type of "number of labs"
     try:
@@ -232,16 +237,15 @@ def main():
         this_line = file_content[i].split(':')
         labs_dict.update({str(this_line[0]): [int(this_line[1])]})
 
-    #print (labs_dict)
-
     for i in range(2+num_of_labs,len(file_content)):
         this_line = file_content[i].split('-')
-        mac_map.update({str(this_line[0]): [str(this_line[1])]})
+        mac_map.update({str(this_line[0]): str(this_line[1])})
         labs_dict[this_line[1]].append(str(this_line[0]))
 
-    #print (labs_dict)
-    print "mac mao is "
+    print "DEBUG: MAC ADDRESSES "
+    print "========="
     print (mac_map)
+    print "========="
     for key, value in labs_dict.items():
         labs.append(key)
         capacity_of_labs.append(value[0])
@@ -261,7 +265,10 @@ def main():
     #Removed mac_address as it is not entirely necessary at the moment
     labs_info = sorted(labs_info, key=itemgetter(1), reverse=True)
 
+    print "DEBUG: LABS INFO "
+    print "========="
     print labs_info
+    print "========="
         
     # Print them one by one
     for eachLab in labs_info:
@@ -276,49 +283,32 @@ def main():
     CIDR_format_string = CIDR.split('/')
     ip = CIDR_format_string[0]
     subnet_mask = CIDR_format_string[1]
-   # print (ip)
+    # print (ip)
 
-    #WE have to convert subnet masks to an equivalent IP format for processing. 
+    # We have to convert subnet masks to an equivalent IP format for processing. 
 
     subnet_list = convert_mask_to_ip(int(subnet_mask))
     #print subnet_list
 
-    #Calculate total capacity of the labs and if those satisfy the constraints
+    # Calculate total capacity of the labs and if those satisfy the constraints
     total_hosts = check_lab_capacity(capacity_of_labs, subnet_mask)
     
 
-    ##Get the Network Address from the given IP address and subnet mask
+    # Get the Network Address from the given IP address and subnet mask
 
-    #Split ip into list
+    # Split ip into list
     ip_addr = ip.split(".")
     for x in xrange(len(ip_addr)):
         ip_addr[x] = int(ip_addr[x])
 
-    
-    #Send this ip to get the N.A.
+    # Send this ip to get the N.A.
     network_addr = get_network_address(ip_addr, subnet_list)
-    #print ("network address is ")
-    #print (network_addr)
 
-
-    #Run the variable length subnet masking function
-
+    # Run the variable length subnet masking function
     VLSM(network_addr, labs_info )
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    # Run the server
+    run_server()
 
 
 if __name__ == '__main__':  # pragma: no cover
