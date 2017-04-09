@@ -1,7 +1,7 @@
 import sys
 import os
 import re
-import math
+from math import *
 from operator import itemgetter
 
 
@@ -80,15 +80,54 @@ def get_network_address(ip_addr,subnet_list):
         #Logic: NA is obtained via ANDing the bits of ip address and the subnet
         NA[x] = ip_addr[x] & subnet_list[x]  # octet and subnetmask
     return NA
+
+def get_broadcast_address(ip_addr, subnet_list):  # Get broadcast address from ip and mask
+
+    BA = []
+    for x in xrange(4):
+        BA.append(0)
+    #Convert list members to ints.
+    for x in xrange(4):
+        ip_addr[x] = int(ip_addr[x])
+        subnet_list[x] = int(subnet_list[x])
     
+    for x in xrange(4):
+        #Logic: You OR!
+        BA[x] = ipaddr[x]) | 255 - subnet_list[x]  # octet or wildcard mask
+    return BA
+
+    
+def min_pow2(capacity):  # how many bits do we need to borrow
+    z = log(capacity, 2)  # to cover number of hosts
+    int_z = int(z)
+    if z == int_z:
+        return int_z
+    else:
+        return int(ceil(z))
+    
+
 
 def VLSM(network_addr, labs_info):
 
-    #Iterate over the labs
+    #Iterate over the labs' capacities
     for x in labs_info:
         #print (int(x[1]) + 2)
         bits = min_pow2(int(x[1]) + 2)
-        ipaddr = getnet(ipaddr, getmask(int(32 - bits)))
+        ipaddr = get_network_address(network_addr, convert_mask_to_ip(int(32 - bits)))
+
+        print " SUBNET: %s NEEDED: %3d (%3d %% of) ALLOCATED %4d ADDRESS: %15s :: %15s - %-15s :: %15s MASK: %d (%15s)" % \
+              (x[0],
+               int(x[1]),
+               (int(x[1]) * 100) / (int(pow(2, bits)) - 2),
+               int(pow(2, bits)) - 2,
+               norm(ipaddr),
+               norm(getfirst(ipaddr)),
+               norm(getlast(ipaddr, getmask(int(32 - bits)))),
+               norm(getbcast(ipaddr, getmask(int(32 - bits)))),
+               32 - bits,
+               norm(getmask(int(32 - bits))))
+
+
 
 
 
