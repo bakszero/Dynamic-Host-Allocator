@@ -27,6 +27,7 @@ def validate_CIDR(CIDR_format_string):
         sys.exit(1)
 
 
+
 def convert_mask_to_ip(subnet_mask):
     # ex. 24 -> 255.255.255.0
     subnet_list = []
@@ -93,42 +94,80 @@ def get_broadcast_address(ip_addr, subnet_list):  # Get broadcast address from i
     
     for x in xrange(4):
         #Logic: You OR!
-        BA[x] = ipaddr[x]) | 255 - subnet_list[x]  # octet or wildcard mask
+        BA[x] = (ipaddr[x]) | (255 - subnet_list[x])  # octet or wildcard mask
     return BA
 
-    
-def min_pow2(capacity):  # how many bits do we need to borrow
-    z = log(capacity, 2)  # to cover number of hosts
+def first_ip(ipaddr):  # Get first usable address from ip and mask
+    new_addr = ipaddr[:]  # list is mutable, not to change the global value
+    new_addr[3] = int(new_addr[3]) + 1
+    return new_addr
+
+
+def last_ip(ipaddr, subnet_list):  # Get last usable address from ip and mask
+    addr = get_broadcast_address(ipaddr, subnet_list)
+    addr[3] -= 1
+    return addr
+
+
+def min_pow2(capacity):  # how many bits do we need to borrow to cover number of hosts
+    z = log(capacity, 2)  
     int_z = int(z)
     if z == int_z:
         return int_z
     else:
         return int(ceil(z))
     
+def join(ip_addr): #Joiner for the IP
+    addr = []
+    for i in xrange(4):
+        addr[i] = str(ip_addr[i])
 
+    print "addr is"
+    return ".".join(addr)
+
+
+
+def getnextaddr(ipaddr, nmask):
+    ipaddr = getbcast(ipaddr, nmask)
+    for i in range(4):
+        if ipaddr[3 - i] == 255:
+            ipaddr[3 - i] = 0
+            if ipaddr[3 - i - 1] != 255:
+                ipaddr[3 - i - 1] += 1
+                break
+        else:
+            ipaddr[3 - i] += 1
+            break
+    return ipaddr
+
+need = 0
+allc = 0
 
 def VLSM(network_addr, labs_info):
-
+    ipaddr = network_addr
     #Iterate over the labs' capacities
     for x in labs_info:
         #print (int(x[1]) + 2)
         bits = min_pow2(int(x[1]) + 2)
-        ipaddr = get_network_address(network_addr, convert_mask_to_ip(int(32 - bits)))
-
+        ipaddr = get_network_address(ipaddr, convert_mask_to_ip(int(32 - bits)))
+        print "ipaddr"
+        print (ipaddr)
         print " SUBNET: %s NEEDED: %3d (%3d %% of) ALLOCATED %4d ADDRESS: %15s :: %15s - %-15s :: %15s MASK: %d (%15s)" % \
               (x[0],
                int(x[1]),
                (int(x[1]) * 100) / (int(pow(2, bits)) - 2),
                int(pow(2, bits)) - 2,
-               norm(ipaddr),
-               norm(getfirst(ipaddr)),
-               norm(getlast(ipaddr, getmask(int(32 - bits)))),
-               norm(getbcast(ipaddr, getmask(int(32 - bits)))),
+               join(ipaddr),
+               join(first_ip(ipaddr)),
+               join(last_ip(ipaddr, convert_mask_to_ip(int(32 - bits)))),
+               join(get_broadcast_address(ipaddr, convert_mask_to_ip(int(32 - bits)))),
                32 - bits,
-               norm(getmask(int(32 - bits))))
+               join(convert_mask_to_ip(int(32 - bits))))
 
 
-
+        need += int(x[1])
+        allc += int(pow(2, bits)) - 2
+        ipaddr = getnextaddr(ipaddr, convert_mask_to_ip(int(32 - bits)))
 
 
 
