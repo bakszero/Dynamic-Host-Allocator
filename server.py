@@ -94,7 +94,7 @@ def get_broadcast_address(ip_addr, subnet_list):  # Get broadcast address from i
     
     for x in xrange(4):
         #Logic: You OR!
-        BA[x] = (ipaddr[x]) | (255 - subnet_list[x])  # octet or wildcard mask
+        BA[x] = (ip_addr[x]) | (255 - subnet_list[x])  # octet or wildcard mask
     return BA
 
 def first_ip(ipaddr):  # Get first usable address from ip and mask
@@ -119,16 +119,18 @@ def min_pow2(capacity):  # how many bits do we need to borrow to cover number of
     
 def join(ip_addr): #Joiner for the IP
     addr = []
-    for i in xrange(4):
-        addr[i] = str(ip_addr[i])
+    for i in xrange(len(ip_addr)):
+        addr.append(str(ip_addr[i]))
+    print addr
+    addr =  ".".join(addr)
 
-    print "addr is"
-    return ".".join(addr)
+    return addr
+
 
 
 
 def getnextaddr(ipaddr, nmask):
-    ipaddr = getbcast(ipaddr, nmask)
+    ipaddr = get_broadcast_address(ipaddr, nmask)
     for i in range(4):
         if ipaddr[3 - i] == 255:
             ipaddr[3 - i] = 0
@@ -144,6 +146,9 @@ need = 0
 allc = 0
 
 def VLSM(network_addr, labs_info):
+    need = 0
+    allc =0
+    bits = 0
     ipaddr = network_addr
     #Iterate over the labs' capacities
     for x in labs_info:
@@ -152,7 +157,7 @@ def VLSM(network_addr, labs_info):
         ipaddr = get_network_address(ipaddr, convert_mask_to_ip(int(32 - bits)))
         print "ipaddr"
         print (ipaddr)
-        print " SUBNET: %s NEEDED: %3d (%3d %% of) ALLOCATED %4d ADDRESS: %15s :: %15s - %-15s :: %15s MASK: %d (%15s)" % \
+        print " SUBNET: %15s NEEDED: %3d (%3d %% of) ALLOCATED %4d ADDRESS: %15s :: %15s - %-15s :: %15s MASK: %d (%15s)" % \
               (x[0],
                int(x[1]),
                (int(x[1]) * 100) / (int(pow(2, bits)) - 2),
