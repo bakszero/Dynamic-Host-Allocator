@@ -135,6 +135,7 @@ def get_next_usable_addr(ipaddr,subnet_list):
                 break
     return ipaddr
 
+allocation = {}
 
 
 def VLSM(network_addr, labs_info):
@@ -156,8 +157,14 @@ def VLSM(network_addr, labs_info):
         #print "last addr is "
         #print (last_addr)
         last_addr[3] -= 1
-        
 
+        #Do the join of the first and last addresses here itself
+        first_upd_addr = join (first_addr)
+        last_upd_addr = join (last_addr)
+        allocation.update({str(x[0]): [first_upd_addr]})
+        allocation[x[0]].append(last_upd_addr)
+
+        print allocation
 
         #print "ipaddr"
         #print (ipaddr)
