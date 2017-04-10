@@ -8,11 +8,11 @@ import copy
 import socket
 
 
-PORT =1445
+PORT = 1451
 HOST = 'localhost'
 allocation = {}
 mac_map = {}
-curr_ip_pointer={}
+
 
 def validate_CIDR(CIDR_format_string):
 
@@ -38,7 +38,9 @@ def validate_CIDR(CIDR_format_string):
 
 
 def convert_mask_to_ip(subnet_mask):
+    
     # ex. 24 -> 255.255.255.0
+    
     subnet_list = []
     for x in xrange(4): # creating list of four 0s
         subnet_list.append(0)
@@ -65,12 +67,12 @@ def convert_mask_to_ip(subnet_mask):
 
 
 def check_lab_capacity(capacity_of_labs, subnet_mask):
+    
     total_capacity = 0
     for i in capacity_of_labs:
         total_capacity += i
-    #print (total_capacity)
 
-    #check if lab capacity is valid. If not, raise an error.
+    # Check if lab capacity is valid. If not, raise an error.
     if total_capacity > (pow(2, 32 - int(subnet_mask)) - 2):
         exit("ERROR: Too many hosts")
     else:
@@ -78,26 +80,33 @@ def check_lab_capacity(capacity_of_labs, subnet_mask):
 
 
 def get_network_address(ip_addr,subnet_list):
+    
     NA=[]
     for x in xrange(4):
         NA.append(0)
-    #Convert list members to ints.
+    
+    # Convert list members to ints.
     for x in xrange(4):
         ip_addr[x] = int(ip_addr[x])
         subnet_list[x] = int(subnet_list[x])
     for x in range(4):
         
-        #Logic: NA is obtained via ANDing the bits of ip address and the subnet
+        # Logic: NA is obtained via ANDing the bits of ip address and the subnet
+        
         NA[x] = ip_addr[x] & subnet_list[x]  # octet and subnetmask
     return NA
 
 
-def get_broadcast_address(ip_addr, subnet_list):  # Get broadcast address from ip and mask
+def get_broadcast_address(ip_addr, subnet_list):
+
+    # Get broadcast address from ip and mask
 
     BA = []
     for x in xrange(4):
         BA.append(0)
-    #Convert list members to ints.
+    
+    # Convert list members to ints.
+    
     for x in xrange(4):
         ip_addr[x] = int(ip_addr[x])
         subnet_list[x] = int(subnet_list[x])
@@ -108,7 +117,10 @@ def get_broadcast_address(ip_addr, subnet_list):  # Get broadcast address from i
     return BA
 
 
-def min_pow2(capacity):  # how many bits do we need to borrow to cover number of hosts
+def min_pow2(capacity):
+    
+    # how many bits do we need to borrow to cover number of hosts
+
     z = log(capacity, 2)  
     int_z = int(z)
     if z == int_z:
@@ -117,7 +129,10 @@ def min_pow2(capacity):  # how many bits do we need to borrow to cover number of
         return int(ceil(z))
     
 
-def join(ip_addr): #Joiner for the IP
+def join(ip_addr):
+
+    # Joiner for the IP
+
     addr = []
     for i in xrange(len(ip_addr)):
         addr.append(str(ip_addr[i]))
@@ -127,7 +142,12 @@ def join(ip_addr): #Joiner for the IP
     return addr
 
 
-def get_next_usable_addr(ipaddr,subnet_list):
+def get_next_usable_addr(ipaddr, subnet_list):
+    
+    """
+    Isn't this a duplicate of get_next_ip_addr(ipaddr)?
+    """
+
     ipaddr = get_broadcast_address(ipaddr, subnet_list)
     
     for i in xrange(len(ipaddr)):
@@ -145,7 +165,18 @@ def get_next_usable_addr(ipaddr,subnet_list):
 
 def get_next_ip_addr(ipaddr):
     
-    
+    """
+    Gives the next IPv4 addr.
+
+    >>> get_next_ip_addr('10.220.65.66')
+    >>> '10.220.65.67'
+    """
+
+    ipaddr = ipaddr.split('.')
+
+    for i in xrange(len(ipaddr)):
+        ipaddr[i] = int(ipaddr[i])
+
     for i in xrange(len(ipaddr)):
         last_digit = 3-i
         if ipaddr[last_digit] != 255:
@@ -157,36 +188,41 @@ def get_next_ip_addr(ipaddr):
                 ipaddr[last_digit - 1] += 1
                 break
     
-    return ipaddr
-
-def update_curr_pointer():
-    print curr_ip_pointer
-    for key, value in curr_ip_pointer.items():
-        #print key, value
-        curr_ip_pointer[key]=get_next_ip_addr(value)
+    return join(ipaddr)
 
 
+def assign_client_ip(lab):
 
-def assign_client_ip(mac_addr):
-    lab = str(mac_map[mac_addr])
-    client_ip = curr_ip_pointer[lab]
-    print "zppp"
-    print client_ip
-    return client_ip
-
+    # Assigns an IP to the client in the given range for the lab.
+    
+    if get_next_ip_addr(allocation[lab][1]) == allocation[lab][2]:
+        print "No more IP addresses are available"
+        return None
+    else:
+        client_ip = allocation[lab][2]
+        allocation[lab][2] = get_next_ip_addr(allocation[lab][2])
+        return client_ip
 
 
 def VLSM(network_addr, labs_info):
+
+    """
+    Variable length subnet masking method with args -
+    labs_info is the list of the tuple of lab_name and number of hosts it can hold.
+    network_addr is the address where we start off with.
+    """
+
     need = 0
     allc =0
     bits = 0
     ipaddr = network_addr
-    #Iterate over the labs' capacities
+    
+    # Iterate over the labs' capacities
     for x in labs_info:
-        #print (int(x[1]) + 2)
+
         bits = min_pow2(int(x[1]) + 2)
         ipaddr = get_network_address(ipaddr, convert_mask_to_ip(int(32 - bits)))
-        print ipaddr
+
         #Get the first and last IPs
         first_addr = copy.deepcopy(ipaddr)  # list is mutable, not to change the global value
         first_addr[3] = int(int(first_addr[3]) + 1)
@@ -199,15 +235,11 @@ def VLSM(network_addr, labs_info):
         last_upd_addr = join (last_addr)
         allocation.update({str(x[0]): [first_upd_addr]})
         allocation[x[0]].append(last_upd_addr)
+        allocation[x[0]].append(first_upd_addr)
 
-        #print allocation
-
-        #Store the current ip pointer 
-        curr_ip_pointer.update({str(x[0]): first_addr})
-        #print "curr_ip_pointer is "
-        #print curr_ip_pointer
         #labs_dict[this_line[1]].append(str(this_line[0]))
-
+        print "DEBUG: LAB SUBTNET MASKS "
+        print "==========="
         print " SUBNET: %5s NEEDED: %3d (%3d %% of) ALLOCATED %4d ADDRESS: %15s :: %15s - %-15s :: %15s MASK: %d (%15s)" % \
               (x[0],
                int(x[1]),
@@ -219,42 +251,41 @@ def VLSM(network_addr, labs_info):
                join(get_broadcast_address(ipaddr, convert_mask_to_ip(int(32 - bits)))),
                32 - bits,
                join(convert_mask_to_ip(int(32 - bits))))
-
+        print "==========="
 
         need += int(x[1])
         allc += int(pow(2, bits)) - 2
         ipaddr = get_next_usable_addr(ipaddr, convert_mask_to_ip(int(32 - bits)))
-        print "Next usable addresss is "
-        print (ipaddr)
-
-
 
 
 def run_server():
+
+    """
+    Main DHCP server which allocates IPs to the hosts
+    """
     dhcp_server = socket.socket()
     dhcp_server.bind((HOST, PORT))
     dhcp_server.listen(5)
+    
     while True:
         conn, addr = dhcp_server.accept()
         print 'Got connection from', addr
         data = conn.recv(1024)
         print data
 
-        #Check if data mac in the original mac dictionary
-        #data = "F8:D1:90:80:65:A8"
         if str(data) in mac_map:
-            #if yes
-            print "YES IN MAC "
-            new_client_ip = assign_client_ip(str(data))
-            print "HEY HERE I AM ASSIGNED"
-            print new_client_ip
-            #Update curr_pointer of lab dictionary
-            
+            lab = str(mac_map[str(data)])
+            new_client_ip = assign_client_ip(lab)
+            if new_client_ip is None:
+                new_client_ip = "IP Allocation Error: No IP available"
+        else:
+            lab = 'UNKNOWN'
+            new_client_ip = assign_client_ip(lab)
+            if new_client_ip is None:
+                new_client_ip = "IP Allocation Error: No IP available"
 
-        print('Server received', repr(data))
+        conn.send(new_client_ip)
 
-        conn.send(join(new_client_ip))
-        update_curr_pointer()
         conn.close()
 
 
@@ -293,7 +324,7 @@ def main():
         this_line = file_content[i].split(':')
         labs_dict.update({str(this_line[0]): [int(this_line[1])]})
 
-    for i in range(2+num_of_labs,len(file_content)):
+    for i in range(2+num_of_labs, len(file_content)):
         this_line = file_content[i].split('-')
         mac_map.update({str(this_line[0]): str(this_line[1])})
         labs_dict[this_line[1]].append(str(this_line[0]))
@@ -302,55 +333,39 @@ def main():
     print "========="
     print (mac_map)
     print "========="
+
     for key, value in labs_dict.items():
         labs.append(key)
         capacity_of_labs.append(value[0])
-        #We may have multiple MAc addresses, so adding that to the mac_address list
         for i in value[1:]:
             mac_add.append(str(i))
 
-    #print (capacity_of_labs)
+    # DOUBT: The number of hosts here are 10 but allocated is 14?!
+    labs.append('UNKNOWN')
+    capacity_of_labs.append(10)
 
-    #No need to add mac address to labs(as of now atleast!)
     labs_info = zip(labs, capacity_of_labs)
-
-    #print (labs_info)
-
-    # Sort labs according to number of hosts - ('Lab_name', number_of_hosts, 'MAC addr')
-    #Added reverse = True
-    #Removed mac_address as it is not entirely necessary at the moment
     labs_info = sorted(labs_info, key=itemgetter(1), reverse=True)
 
     print "DEBUG: LABS INFO "
     print "========="
     print labs_info
     print "========="
-        
-    # Print them one by one
-    for eachLab in labs_info:
-        pass
-        #print eachLab
 
-
-
-    #VLSM SUBNET MASKING AND ASSIGNING IP ADDRESSES 
+    """
+    VLSM SUBNET MASKING AND ASSIGNING IP ADDRESSES
+    """
 
     #Split the subnet CIDR_format_string
     CIDR_format_string = CIDR.split('/')
     ip = CIDR_format_string[0]
     subnet_mask = CIDR_format_string[1]
-    # print (ip)
 
     # We have to convert subnet masks to an equivalent IP format for processing. 
-
     subnet_list = convert_mask_to_ip(int(subnet_mask))
-    #print subnet_list
 
     # Calculate total capacity of the labs and if those satisfy the constraints
     total_hosts = check_lab_capacity(capacity_of_labs, subnet_mask)
-    
-
-    # Get the Network Address from the given IP address and subnet mask
 
     # Split ip into list
     ip_addr = ip.split(".")
@@ -363,12 +378,10 @@ def main():
     # Run the variable length subnet masking function
     VLSM(network_addr, labs_info )
 
-    # Run the server
+    """
+    Run the main DHCP server
+    """
     run_server()
-
-    
-
-    #update_curr_pointer()
 
 
 if __name__ == '__main__':  # pragma: no cover

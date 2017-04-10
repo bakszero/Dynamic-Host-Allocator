@@ -2,7 +2,7 @@ import socket
 
 s = socket.socket()             
 host = ""
-port = 1445
+port = 1451
 
 s.connect((host, port))
 s.send("F8:D1:90:80:65:A8")
