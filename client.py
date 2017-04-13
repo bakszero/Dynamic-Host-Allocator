@@ -18,7 +18,7 @@ if (len(sys.argv) >1):
   #  sys.exit(1)
         
 
-print mac
+#print mac
 
 
 
