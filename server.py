@@ -12,6 +12,8 @@ PORT = 1451
 HOST = 'localhost'
 allocation = {}
 mac_map = {}
+mac_ip_map = {}
+global_subnet_mask = 'subnet_string'
 
 
 def validate_CIDR(CIDR_format_string):
@@ -64,19 +66,6 @@ def convert_mask_to_ip(subnet_mask):
         subnet_list[i+1] = int(256 - pow(2,rem_subnet))
     
     return subnet_list
-
-
-def check_lab_capacity(capacity_of_labs, subnet_mask):
-    
-    total_capacity = 0
-    for i in capacity_of_labs:
-        total_capacity += i
-
-    # Check if lab capacity is valid. If not, raise an error.
-    if total_capacity > (pow(2, 32 - int(subnet_mask)) - 2):
-        exit("ERROR: Too many hosts")
-    else:
-        return total_capacity
 
 
 def get_network_address(ip_addr,subnet_list):
@@ -191,9 +180,12 @@ def get_next_ip_addr(ipaddr):
     return join(ipaddr)
 
 
-def assign_client_ip(lab):
+def assign_client_ip(lab, mac_addr):
 
     # Assigns an IP to the client in the given range for the lab.
+
+    if mac_addr in mac_ip_map:
+        return mac_ip_map[mac_addr]
     
     if get_next_ip_addr(allocation[lab][1]) == allocation[lab][2]:
         print "No more IP addresses are available"
@@ -201,6 +193,7 @@ def assign_client_ip(lab):
     else:
         client_ip = allocation[lab][2]
         allocation[lab][2] = get_next_ip_addr(allocation[lab][2])
+        mac_ip_map.update({mac_addr: client_ip})
         return client_ip
 
 
@@ -213,17 +206,30 @@ def VLSM(network_addr, labs_info):
     """
 
     need = 0
-    allc =0
+    allc = 0
     bits = 0
     ipaddr = network_addr
-    
+    total_allocated = 0
+
     # Iterate over the labs' capacities
     for x in labs_info:
+
+        # This part should be tested properly and I think "- 2" should not be there
+        # And, unkown lab should also be handled
+        if total_allocated > (pow(2, 32 - int(global_subnet_mask)) - 2):
+            print "====="
+            print "DEBUG: Deletion of elements in MAC hash table"
+            for key, value in mac_map.items():
+                if value == str(x[0]):
+                    print key, value
+                    del mac_map[key]
+            print "====="
+            continue
 
         bits = min_pow2(int(x[1]) + 2)
         ipaddr = get_network_address(ipaddr, convert_mask_to_ip(int(32 - bits)))
 
-        #Get the first and last IPs
+        # Get the first and last IPs
         first_addr = copy.deepcopy(ipaddr)  # list is mutable, not to change the global value
         first_addr[3] = int(int(first_addr[3]) + 1)
 
@@ -233,11 +239,8 @@ def VLSM(network_addr, labs_info):
         # Do the join of the first and last addresses here itself
         first_upd_addr = join (first_addr)
         last_upd_addr = join (last_addr)
-        allocation.update({str(x[0]): [first_upd_addr]})
-        allocation[x[0]].append(last_upd_addr)
-        allocation[x[0]].append(first_upd_addr)
+        allocation.update({str(x[0]): [first_upd_addr, last_upd_addr, first_upd_addr]})
 
-        #labs_dict[this_line[1]].append(str(this_line[0]))
         print "DEBUG: LAB SUBTNET MASKS "
         print "==========="
         print " SUBNET: %5s NEEDED: %3d (%3d %% of) ALLOCATED %4d ADDRESS: %15s :: %15s - %-15s :: %15s MASK: %d (%15s)" % \
@@ -256,6 +259,7 @@ def VLSM(network_addr, labs_info):
         need += int(x[1])
         allc += int(pow(2, bits)) - 2
         ipaddr = get_next_usable_addr(ipaddr, convert_mask_to_ip(int(32 - bits)))
+        total_allocated += (int(pow(2, bits)) - 2)
 
 
 def run_server():
@@ -274,15 +278,12 @@ def run_server():
         print data
 
         if str(data) in mac_map:
-            lab = str(mac_map[str(data)])
-            new_client_ip = assign_client_ip(lab)
-            if new_client_ip is None:
-                new_client_ip = "IP Allocation Error: No IP available"
+            new_client_ip = assign_client_ip(str(mac_map[str(data)]), str(data))
         else:
-            lab = 'UNKNOWN'
-            new_client_ip = assign_client_ip(lab)
-            if new_client_ip is None:
-                new_client_ip = "IP Allocation Error: No IP available"
+            new_client_ip = assign_client_ip('UNKNOWN', str(data))
+        
+        if new_client_ip is None:
+            new_client_ip = "IP Allocation Error: No IP available"
 
         conn.send(new_client_ip)
 
@@ -306,6 +307,13 @@ def main():
 
     # Store the validated CIDR in a variable for future use.
     CIDR = file_content[0]
+
+    # Split the subnet CIDR_format_string
+    CIDR_format_string = CIDR.split('/')
+    ip = CIDR_format_string[0]
+    subnet_mask = CIDR_format_string[1]
+    global global_subnet_mask
+    global_subnet_mask = subnet_mask
     
     # Validate the type of "number of labs"
     try:
@@ -335,12 +343,14 @@ def main():
     print "========="
 
     for key, value in labs_dict.items():
+        if value[0] > (pow(2, 32 - int(subnet_mask)) - 2):
+            continue
         labs.append(key)
         capacity_of_labs.append(value[0])
         for i in value[1:]:
             mac_add.append(str(i))
 
-    # DOUBT: The number of hosts here are 10 but allocated is 14?!
+    # Add UNKNOWN LABS to accomodate other people
     labs.append('UNKNOWN')
     capacity_of_labs.append(10)
 
@@ -356,16 +366,8 @@ def main():
     VLSM SUBNET MASKING AND ASSIGNING IP ADDRESSES
     """
 
-    #Split the subnet CIDR_format_string
-    CIDR_format_string = CIDR.split('/')
-    ip = CIDR_format_string[0]
-    subnet_mask = CIDR_format_string[1]
-
     # We have to convert subnet masks to an equivalent IP format for processing. 
     subnet_list = convert_mask_to_ip(int(subnet_mask))
-
-    # Calculate total capacity of the labs and if those satisfy the constraints
-    total_hosts = check_lab_capacity(capacity_of_labs, subnet_mask)
 
     # Split ip into list
     ip_addr = ip.split(".")
@@ -376,7 +378,7 @@ def main():
     network_addr = get_network_address(ip_addr, subnet_list)
 
     # Run the variable length subnet masking function
-    VLSM(network_addr, labs_info )
+    VLSM(network_addr, labs_info)
 
     """
     Run the main DHCP server
