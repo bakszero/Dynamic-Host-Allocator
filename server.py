@@ -349,7 +349,7 @@ def run_server():
     dhcp_server = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     #host = ""
     dhcp_server.bind(addr)
-    dhcp_server.settimeout(2)
+    dhcp_server.settimeout(100)
 
 
   
@@ -380,7 +380,7 @@ def run_server():
             
             print "new client ip is "
             print (new_client_ip)
-            dhcp_server.sendto(new_client_ip, (address[0] ,PORT))
+            dhcp_server.sendto(new_client_ip, address)
         except:
             print "Write timeout on server"
 
