@@ -8,12 +8,12 @@ import copy
 import socket
 
 
-PORT = 1451
+PORT = 1452
 HOST = 'localhost'
 allocation = {}
 mac_map = {}
 mac_ip_map = {}
-global_subnet_mask = 'subnet_string'
+deleted_labs = []
 
 
 def validate_CIDR(CIDR_format_string):
@@ -197,6 +197,94 @@ def assign_client_ip(lab, mac_addr):
         return client_ip
 
 
+def get_labs_info(file_content, subnet_mask):
+
+    total_slots_given = int(pow(2, 32 - int(subnet_mask))) # Correct???
+
+    # Validate the type of "number of labs"
+    try:
+        num_of_labs = int(file_content[1])
+    except TypeError as err:
+        print("Type Error: {0}".format(err))
+        sys.exit(1)
+
+    # Get Capacity and MAC address objects for the labs
+    capacity_of_labs = []
+    labs = []
+    labs_dict = {}
+
+    # This part should be tested properly and I think "- 2" should not be there
+    for i in range(2, 2+num_of_labs):
+        this_line = file_content[i].split(':')
+        if (int(this_line[1])+2) <= total_slots_given:
+            labs_dict.update({str(this_line[0]): int(this_line[1])})
+
+    for i in range(2+num_of_labs, len(file_content)):
+        this_line = file_content[i].split('-')
+        if str(this_line[1]) in labs_dict:
+            mac_map.update({str(this_line[0]): str(this_line[1])})
+
+    print "DEBUG: MAC ADDRESSES "
+    print "========="
+    print (mac_map)
+    print "=========\n\n",
+
+    for key, value in labs_dict.items():
+        labs.append(key)
+        capacity_of_labs.append(int(value))
+
+    total_allocated = sum(capacity_of_labs) + int(2*len(capacity_of_labs))
+
+    # And, unkown lab should also be handled (TEST!!)
+    if (total_slots_given - total_allocated) > 2:
+        # Add UNKNOWN LABS to accomodate other people
+        # Giving remaining slots to UKNOWN
+        labs.append('UNKNOWN')
+        capacity_of_labs.append(total_slots_given-total_allocated-2)
+
+    labs_info = zip(labs, capacity_of_labs)
+    labs_info = sorted(labs_info, key=itemgetter(1), reverse=True)
+
+    total_allocated = 0
+
+    # To remove the labs from the dict
+    for each_lab in labs_info:
+        total_allocated += (int(each_lab[1]) + 2)
+        if total_allocated > total_slots_given:
+            print "\n=====ERROR: Number of hosts greater than number of slot====="
+            print "Lab", each_lab[0], "cannot be added"
+            print "============================================================\n\n"
+            for key, value in mac_map.items():
+                if value == str(each_lab[0]):
+                    del mac_map[key]
+            deleted_labs.append(str(each_lab[0]))
+
+    # *** DO WE ACCOMODATE MORE LABS? I THINK WHAT SUSOBHAN TOLD WAS WORNG! ***
+    """
+    To implement DNS as well, just subtract 1 from total_given_slots, and use the first addr
+    as the DNS ans gateway. Just increment network addr and send to VLSM so that allocation happens
+    from there.
+    """
+
+    # To remove the labs from labs_info at the end which cannot be accomodated
+    stop_var = len(labs_info)
+    i = 0
+    while i < stop_var:
+        if labs_info[i][0] in deleted_labs:
+            print labs_info[i]
+            del labs_info[i]
+            stop_var -= 1
+            i -= 1
+        i += 1
+
+    print "DEBUG: LABS INFO "
+    print "========="
+    print labs_info
+    print "=========\n"
+
+    return labs_info
+
+
 def VLSM(network_addr, labs_info):
 
     """
@@ -209,22 +297,9 @@ def VLSM(network_addr, labs_info):
     allc = 0
     bits = 0
     ipaddr = network_addr
-    total_allocated = 0
 
     # Iterate over the labs' capacities
     for x in labs_info:
-
-        # This part should be tested properly and I think "- 2" should not be there
-        # And, unkown lab should also be handled
-        if total_allocated > (pow(2, 32 - int(global_subnet_mask)) - 2):
-            print "====="
-            print "DEBUG: Deletion of elements in MAC hash table"
-            for key, value in mac_map.items():
-                if value == str(x[0]):
-                    print key, value
-                    del mac_map[key]
-            print "====="
-            continue
 
         bits = min_pow2(int(x[1]) + 2)
         ipaddr = get_network_address(ipaddr, convert_mask_to_ip(int(32 - bits)))
@@ -254,12 +329,11 @@ def VLSM(network_addr, labs_info):
                join(get_broadcast_address(ipaddr, convert_mask_to_ip(int(32 - bits)))),
                32 - bits,
                join(convert_mask_to_ip(int(32 - bits))))
-        print "==========="
+        print "===========\n"
 
         need += int(x[1])
         allc += int(pow(2, bits)) - 2
         ipaddr = get_next_usable_addr(ipaddr, convert_mask_to_ip(int(32 - bits)))
-        total_allocated += (int(pow(2, bits)) - 2)
 
 
 def run_server():
@@ -312,55 +386,8 @@ def main():
     CIDR_format_string = CIDR.split('/')
     ip = CIDR_format_string[0]
     subnet_mask = CIDR_format_string[1]
-    global global_subnet_mask
-    global_subnet_mask = subnet_mask
-    
-    # Validate the type of "number of labs"
-    try:
-        num_of_labs = int(file_content[1])
-    except TypeError as err:
-        print("Type Error: {0}".format(err))
-        sys.exit(1)
-    
-    # Get Capacity and MAC address objects for the labs
-    capacity_of_labs = []
-    labs = []
-    mac_add = []
-    labs_dict = {}
 
-    for i in range(2, 2+num_of_labs):
-        this_line = file_content[i].split(':')
-        labs_dict.update({str(this_line[0]): [int(this_line[1])]})
-
-    for i in range(2+num_of_labs, len(file_content)):
-        this_line = file_content[i].split('-')
-        mac_map.update({str(this_line[0]): str(this_line[1])})
-        labs_dict[this_line[1]].append(str(this_line[0]))
-
-    print "DEBUG: MAC ADDRESSES "
-    print "========="
-    print (mac_map)
-    print "========="
-
-    for key, value in labs_dict.items():
-        if value[0] > (pow(2, 32 - int(subnet_mask)) - 2):
-            continue
-        labs.append(key)
-        capacity_of_labs.append(value[0])
-        for i in value[1:]:
-            mac_add.append(str(i))
-
-    # Add UNKNOWN LABS to accomodate other people
-    labs.append('UNKNOWN')
-    capacity_of_labs.append(10)
-
-    labs_info = zip(labs, capacity_of_labs)
-    labs_info = sorted(labs_info, key=itemgetter(1), reverse=True)
-
-    print "DEBUG: LABS INFO "
-    print "========="
-    print labs_info
-    print "========="
+    labs_info = get_labs_info(file_content, subnet_mask)
 
     """
     VLSM SUBNET MASKING AND ASSIGNING IP ADDRESSES
@@ -376,6 +403,8 @@ def main():
 
     # Send this ip to get the N.A.
     network_addr = get_network_address(ip_addr, subnet_list)
+
+    # HOW TO GIVE THE STARTING ADDR TO DNS?
 
     # Run the variable length subnet masking function
     VLSM(network_addr, labs_info)
