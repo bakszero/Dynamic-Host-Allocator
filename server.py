@@ -341,28 +341,55 @@ def run_server():
     """
     Main DHCP server which allocates IPs to the hosts
     """
-    dhcp_server = socket.socket()
-    dhcp_server.bind((HOST, PORT))
-    dhcp_server.listen(5)
+    #dhcp_server = socket.socket()
+    #dhcp_server.bind((HOST, PORT))
+    #dhcp_server.listen(5)
+    addr = ('', PORT) 
+
+    dhcp_server = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    #host = ""
+    dhcp_server.bind(addr)
+    dhcp_server.settimeout(2)
+
+
+  
+
     
     while True:
-        conn, addr = dhcp_server.accept()
-        print 'Got connection from', addr
-        data = conn.recv(1024)
-        print data
+        #conn, addr = dhcp_server.accept()
+        #print 'Got connection from', addr
+        #data = conn.recv(1024)
+        #print data
 
-        if str(data) in mac_map:
-            new_client_ip = assign_client_ip(str(mac_map[str(data)]), str(data))
-        else:
-            new_client_ip = assign_client_ip('UNKNOWN', str(data))
+        try:
+            data,address = dhcp_server.recvfrom(1024)
+
+        #if not data:
+           # break
+            print 'data (%s) from : %s' % ( str(data), address[0])
         
-        if new_client_ip is None:
-            new_client_ip = "IP Allocation Error: No IP available"
+        #show_message('message from :'+ str(address[0]) , data)
 
-        conn.send(new_client_ip)
+            if str(data) in mac_map:
+                new_client_ip = assign_client_ip(str(mac_map[str(data)]), str(data))
+            else:
+                new_client_ip = assign_client_ip('UNKNOWN', str(data))
+            
+            if new_client_ip is None:
+                new_client_ip = "IP Allocation Error: No IP available"
+            
+            print "new client ip is "
+            print (new_client_ip)
+            dhcp_server.sendto(new_client_ip, (address[0] ,PORT))
+        except:
+            print "Write timeout on server"
 
-        conn.close()
+        #conn.send(new_client_ip)
 
+        #conn.close()
+        
+    
+    dhcp_server.close()
 
 def main():
 
