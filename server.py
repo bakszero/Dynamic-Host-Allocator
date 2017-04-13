@@ -185,16 +185,28 @@ def assign_client_ip(lab, mac_addr):
     # Assigns an IP to the client in the given range for the lab.
 
     if mac_addr in mac_ip_map:
-        return mac_ip_map[mac_addr]
+        na = allocation[lab][0]
+        ba = allocation[lab][1]
+        dns = allocation[lab][4]
+        client_subnet = allocation[lab][3]
+
+        na = get_network_address(mac_ip_map[mac_addr].split("."),convert_mask_to_ip(int(client_subnet)) )
+        return mac_ip_map[mac_addr], client_subnet, dns, na, ba
     
     if get_next_ip_addr(allocation[lab][1]) == allocation[lab][2]:
         print "No more IP addresses are available"
         return None
     else:
-        client_ip = allocation[lab][2]
+        na = allocation[lab][0]
+        ba = allocation[lab][1]
+        dns = allocation[lab][4]
         allocation[lab][2] = get_next_ip_addr(allocation[lab][2])
+        client_ip = allocation[lab][2]
+        client_subnet = allocation[lab][3]
         mac_ip_map.update({mac_addr: client_ip})
-        return client_ip
+        return client_ip, client_subnet, dns, na , ba
+
+
 
 
 def get_labs_info(file_content, subnet_mask):
@@ -238,11 +250,13 @@ def get_labs_info(file_content, subnet_mask):
     # And, unkown lab should also be handled (TEST!!)
     if (total_slots_given - total_allocated) > 2:
         # Add UNKNOWN LABS to accomodate other people
-        # Giving remaining slots to UKNOWN
+        # Giving remaining slots to UNKNOWN
         labs.append('UNKNOWN')
         capacity_of_labs.append(total_slots_given-total_allocated-2)
 
     labs_info = zip(labs, capacity_of_labs)
+    print "lab info"
+    print (labs_info)
     labs_info = sorted(labs_info, key=itemgetter(1), reverse=True)
 
     total_allocated = 0
@@ -314,7 +328,7 @@ def VLSM(network_addr, labs_info):
         # Do the join of the first and last addresses here itself
         first_upd_addr = join (first_addr)
         last_upd_addr = join (last_addr)
-        allocation.update({str(x[0]): [first_upd_addr, last_upd_addr, first_upd_addr]})
+        allocation.update({str(x[0]): [first_upd_addr, last_upd_addr, first_upd_addr, bits, first_upd_addr]})
 
         print "DEBUG: LAB SUBTNET MASKS "
         print "==========="
@@ -349,7 +363,7 @@ def run_server():
     dhcp_server = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     #host = ""
     dhcp_server.bind(addr)
-    dhcp_server.settimeout(100)
+    dhcp_server.settimeout(1000)
 
 
   
@@ -371,17 +385,29 @@ def run_server():
         #show_message('message from :'+ str(address[0]) , data)
 
             if str(data) in mac_map:
-                new_client_ip = assign_client_ip(str(mac_map[str(data)]), str(data))
+                new_client_ip, client_subnet, dns, na, ba = assign_client_ip(str(mac_map[str(data)]), str(data))
             else:
-                new_client_ip = assign_client_ip('UNKNOWN', str(data))
+                new_client_ip , client_subnet, dns, na , ba= assign_client_ip('UNKNOWN', str(data))
             
             if new_client_ip is None:
                 new_client_ip = "IP Allocation Error: No IP available"
-            
+                print "IP Allocation Error: No IP available"
+                sys.exit(1)
+
+            gateway = dns
             print "new client ip is "
             print (new_client_ip)
+            print (client_subnet)
+            print na
+            print ba
+            print (dns)
+            print gateway
+            
+            #final_string = str(new_client_ip)+"/"+str(client_subnet)+"\n"+
             dhcp_server.sendto(new_client_ip, address)
-        except:
+
+            #Fixed UDP socket timeout error
+        except socket.timeout:
             print "Write timeout on server"
 
         #conn.send(new_client_ip)
@@ -435,6 +461,8 @@ def main():
 
     # Run the variable length subnet masking function
     VLSM(network_addr, labs_info)
+    print "allocatiojn"
+    print allocation
 
     """
     Run the main DHCP server
