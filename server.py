@@ -185,25 +185,33 @@ def assign_client_ip(lab, mac_addr):
     # Assigns an IP to the client in the given range for the lab.
 
     if mac_addr in mac_ip_map:
-        na = allocation[lab][0]
-        ba = allocation[lab][1]
+        
         dns = allocation[lab][4]
         client_subnet = allocation[lab][3]
-
-        na = get_network_address(mac_ip_map[mac_addr].split("."),convert_mask_to_ip(int(client_subnet)) )
+        #print "AAAA"
+        #print mac_ip_map[mac_addr]
+        #print client_subnet
+        na = join(get_network_address(mac_ip_map[mac_addr].split("."),convert_mask_to_ip(int(client_subnet)) ))
+        ba = join(get_broadcast_address(mac_ip_map[mac_addr].split("."),convert_mask_to_ip(int(client_subnet)) ))
         return mac_ip_map[mac_addr], client_subnet, dns, na, ba
     
     if get_next_ip_addr(allocation[lab][1]) == allocation[lab][2]:
         print "No more IP addresses are available"
         return None
     else:
-        na = allocation[lab][0]
-        ba = allocation[lab][1]
+        
         dns = allocation[lab][4]
         allocation[lab][2] = get_next_ip_addr(allocation[lab][2])
         client_ip = allocation[lab][2]
         client_subnet = allocation[lab][3]
+
+        
+
+
         mac_ip_map.update({mac_addr: client_ip})
+
+        na = join(get_network_address(mac_ip_map[mac_addr].split("."),convert_mask_to_ip(int(client_subnet)) ))
+        ba = join(get_broadcast_address(mac_ip_map[mac_addr].split("."),convert_mask_to_ip(int(client_subnet)) ))
         return client_ip, client_subnet, dns, na , ba
 
 
@@ -328,7 +336,7 @@ def VLSM(network_addr, labs_info):
         # Do the join of the first and last addresses here itself
         first_upd_addr = join (first_addr)
         last_upd_addr = join (last_addr)
-        allocation.update({str(x[0]): [first_upd_addr, last_upd_addr, first_upd_addr, bits, first_upd_addr]})
+        allocation.update({str(x[0]): [first_upd_addr, last_upd_addr, first_upd_addr, 32 - bits, first_upd_addr]})
 
         print "DEBUG: LAB SUBTNET MASKS "
         print "==========="
@@ -395,16 +403,11 @@ def run_server():
                 sys.exit(1)
 
             gateway = dns
-            print "new client ip is "
-            print (new_client_ip)
-            print (client_subnet)
-            print na
-            print ba
-            print (dns)
-            print gateway
             
-            #final_string = str(new_client_ip)+"/"+str(client_subnet)+"\n"+
-            dhcp_server.sendto(new_client_ip, address)
+            
+            final_string = str(new_client_ip)+"/"+str(client_subnet)+"\n"+na+"\n"+ba+"\n"+dns+"\n"+gateway
+            print final_string
+            dhcp_server.sendto(final_string, address)
 
             #Fixed UDP socket timeout error
         except socket.timeout:

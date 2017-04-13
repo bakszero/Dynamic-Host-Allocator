@@ -26,7 +26,7 @@ print mac
 port = 1452
 my_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 my_socket.bind(('', 0))
-my_socket.settimeout(2)
+my_socket.settimeout(100)
 my_socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST,1)
 my_socket.sendto("F8:D0:90:9D:68:16", ('<broadcast>' ,port))
 
@@ -44,8 +44,9 @@ while True:
     #print('receiving data...')
     try:
         message , address = my_socket.recvfrom(1024)
-        print 'message (%s) from : %s' % ( str(message), address[0])
-    except:
+        #print 'message (%s) from : %s' % ( str(message), address[0])
+        print (message)
+    except socket.timeout:
         #print "Write timeout on socket"
         sys.exit()
    
